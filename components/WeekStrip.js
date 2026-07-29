@@ -13,8 +13,11 @@ function toISODate(d) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function WeekStrip({ events, onSelect }) {
-  const monday = startOfWeek(new Date());
+export default function WeekStrip({ events, onSelect, weekOffset, onWeekChange }) {
+  const anchor = new Date();
+  anchor.setDate(anchor.getDate() + weekOffset * 7);
+  const monday = startOfWeek(anchor);
+
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
@@ -23,9 +26,44 @@ export default function WeekStrip({ events, onSelect }) {
 
   const dayLabel = (d) => d.toLocaleDateString("en-GB", { weekday: "short" });
   const dateLabel = (d) => d.getDate();
+  const monthLabel = (d) => d.toLocaleDateString("en-GB", { month: "short" });
 
   return (
     <div className="border border-line rounded-lg overflow-hidden bg-white">
+      <div className="flex items-center justify-between bg-ink text-paper px-3 py-2 border-b border-paper/10">
+        <p className="font-mono text-[0.65rem] uppercase tracking-widest text-paper/60">
+          {monthLabel(days[0])} {days[0].getFullYear()}
+          {monthLabel(days[0]) !== monthLabel(days[6]) ? ` – ${monthLabel(days[6])}` : ""}
+        </p>
+        <div className="flex items-center gap-1">
+          {weekOffset !== 0 && (
+            <button
+              onClick={() => onWeekChange(0)}
+              className="font-mono text-[0.65rem] uppercase tracking-widest text-paper/60 hover:text-paper mr-1"
+            >
+              Today
+            </button>
+          )}
+          <button
+            aria-label="Previous week"
+            onClick={() => onWeekChange(weekOffset - 1)}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-paper/10 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            aria-label="Next week"
+            onClick={() => onWeekChange(weekOffset + 1)}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-paper/10 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
       <div className="grid grid-cols-7 border-b border-line bg-ink text-paper">
         {days.map((d) => {
           const iso = toISODate(d);
