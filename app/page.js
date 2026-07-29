@@ -1,4 +1,4 @@
-//users Page for the Talentbank Career Fair Calendar. This is a client-side rendered component that fetches and displays events, allows filtering by sector, and shows event details in a modal.
+// app/user/page.js
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +6,7 @@ import WeekStrip from "@/components/WeekStrip";
 import EventModal from "@/components/EventModal";
 import StatusBadge from "@/components/StatusBadge";
 
+// --- Configuration Constants ---
 const SECTORS = ["all", "general", "tech", "engineering"];
 const TYPES = ["all", "public", "university", "sector"];
 const TYPE_LABELS = { public: "Public", university: "University", sector: "Sector" };
@@ -16,28 +17,33 @@ const DATE_RANGES = [
   { value: "90", label: "Next 3 months" },
 ];
 
+// --- Helper Functions ---
 function formatRange(start, end) {
-  const s = new Date(start);
-  const e = new Date(end);
-  const opts = { day: "numeric", month: "short" };
-  if (start === end) return s.toLocaleDateString("en-GB", opts);
-  return `${s.toLocaleDateString("en-GB", opts)} – ${e.toLocaleDateString("en-GB", opts)}`;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const options = { day: "numeric", month: "short" };
+  
+  if (start === end) return startDate.toLocaleDateString("en-GB", options);
+  return `${startDate.toLocaleDateString("en-GB", options)} – ${endDate.toLocaleDateString("en-GB", options)}`;
 }
 
-function daysToGo(startDate, endDate) {
+// Updated to return an object with both the label and the raw day difference
+function getDaysToGoInfo(startDate, endDate) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const start = new Date(startDate);
   const end = new Date(endDate);
-  if (today >= start && today <= end) return "Happening now";
-  const diff = Math.round((start - today) / 86400000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  if (diff > 1) return `${diff} days to go`;
+  
+  if (today >= start && today <= end) return { label: "Happening now", diff: 0 };
+  const diffInDays = Math.round((start - today) / 86400000);
+  if (diffInDays === 0) return { label: "Today", diff: 0 };
+  if (diffInDays === 1) return { label: "Tomorrow", diff: 1 };
+  if (diffInDays > 1) return { label: `${diffInDays} days to go`, diff: diffInDays };
+  
   return null;
 }
 
-function withinDateRange(event, range) {
+function isWithinDateRange(event, range) {
   if (range === "all") return true;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -52,151 +58,196 @@ function withinDateRange(event, range) {
   return start <= cutoff;
 }
 
+// --- Main Component ---
 export default function UserPanel() {
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [sector, setSector] = useState("all");
   const [type, setType] = useState("all");
   const [dateRange, setDateRange] = useState("all");
   const [weekOffset, setWeekOffset] = useState(0);
-  const [selected, setSelected] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
-  async function load() {
-    setLoading(true);
-    const res = await fetch("/api/events");
-    const data = await res.json();
-    setEvents(data.events || []);
-    setLoading(false);
+  async function fetchEvents() {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/events");
+      const data = await res.json();
+      setEvents(data.events || []);
+    } catch (error) {
+      console.error("Failed to fetch events:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { fetchEvents(); }, []);
 
-  const visible = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+  const visibleEvents = useMemo(() => {
+    const todayISO = new Date().toISOString().slice(0, 10);
     return events
-      .filter((e) => e.status !== "draft")
-      .filter((e) => e.endDate >= today)
-      .filter((e) => sector === "all" || e.sector === sector)
-      .filter((e) => type === "all" || e.type === type)
-      .filter((e) => withinDateRange(e, dateRange));
+      .filter((event) => event.status !== "draft")
+      .filter((event) => event.endDate >= todayISO)
+      .filter((event) => sector === "all" || event.sector === sector)
+      .filter((event) => type === "all" || event.type === type)
+      .filter((event) => isWithinDateRange(event, dateRange));
   }, [events, sector, type, dateRange]);
 
-  const publishedTotal = events.filter((e) => e.status !== "draft").length;
+  const totalPublishedEvents = events.filter((event) => event.status !== "draft").length;
 
   return (
-    <div className="max-w-4xl mx-auto w-full px-5 py-10 flex-1">
-      <header className="mb-8">
-        <p className="font-mono text-xs uppercase tracking-widest text-ink/50 mb-2 flex items-center gap-1.5">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber" />
-          Talentbank · Career Fairs
-        </p>
-        <h1 className="font-display font-semibold text-4xl">This week, and every week</h1>
-        <div className="h-0.5 w-14 bg-amber mt-3 mb-3" />
-        <p className="text-ink/60">
-          A running calendar of every Talentbank fair — plan around it, register in advance, and
-          see the moment something changes.
-        </p>
-      </header>
-
-      <WeekStrip events={events} onSelect={setSelected} weekOffset={weekOffset} onWeekChange={setWeekOffset} />
-
-      <div className="flex flex-col gap-2.5 mt-10 mb-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex gap-1.5 flex-wrap">
-            {SECTORS.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSector(s)}
-                className={`px-3 py-1.5 rounded-full text-sm border capitalize transition-colors ${
-                  sector === s
-                    ? "bg-ink text-paper border-ink"
-                    : "border-line text-ink/60 hover:border-ink/40"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-          <p className="font-mono text-xs text-ink/50">
-            Showing {visible.length} of {publishedTotal} events
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+      <div className="max-w-4xl mx-auto w-full px-5 py-12 flex-1">
+        
+        {/* Header Section */}
+        <header className="mb-12 text-center md:text-left">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-semibold tracking-wide uppercase mb-4 shadow-sm border border-indigo-100">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            Talentbank Career Fairs
+          </span>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
+            This week, and <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-500">every week.</span>
+          </h1>
+          <p className="text-slate-500 text-lg max-w-2xl leading-relaxed">
+            A running calendar of every Talentbank fair. Plan around it, register in advance, and see the moment something changes.
           </p>
-        </div>
+        </header>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex gap-1.5 flex-wrap">
-            {TYPES.map((t) => (
-              <button
-                key={t}
-                onClick={() => setType(t)}
-                className={`px-3 py-1 rounded-full text-xs border capitalize transition-colors ${
-                  type === t
-                    ? "bg-teal text-paper border-teal"
-                    : "border-line text-ink/50 hover:border-ink/40"
-                }`}
-              >
-                {t === "all" ? "Any type" : TYPE_LABELS[t]}
-              </button>
-            ))}
-          </div>
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="ml-auto text-xs border border-line rounded-full px-3 py-1 bg-white text-ink/60"
-          >
-            {DATE_RANGES.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+        <WeekStrip 
+          events={events} 
+          onSelect={setSelectedEvent} 
+          weekOffset={weekOffset} 
+          onWeekChange={setWeekOffset} 
+        />
 
-      {loading ? (
-        <p className="text-ink/40 text-sm">Loading events…</p>
-      ) : visible.length === 0 ? (
-        <p className="text-ink/40 text-sm border border-line rounded-lg p-6 text-center">
-          No upcoming events match this filter yet.
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {visible.map((e) => {
-            const countdown = daysToGo(e.startDate, e.endDate);
-            return (
-              <li key={e.id}>
+        {/* Filter Controls */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/60 mt-10 mb-8 flex flex-col gap-4">
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex gap-2 flex-wrap">
+              {SECTORS.map((s) => (
                 <button
-                  onClick={() => setSelected(e)}
-                  className="w-full text-left flex items-center gap-4 border border-line border-l-[3px] border-l-teal rounded-lg px-4 py-3 bg-white hover:border-ink/30 hover:border-l-teal transition-colors"
+                  key={s}
+                  onClick={() => setSector(s)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium capitalize transition-all duration-200 ${
+                    sector === s
+                      ? "bg-slate-900 text-white shadow-md scale-105"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{e.title}</p>
-                    <p className="text-ink/50 text-sm">
-                      {formatRange(e.startDate, e.endDate)} · {e.location}
-                    </p>
-                  </div>
-                  {countdown && (
-                    <span className="font-mono text-[0.65rem] uppercase tracking-wide text-ink/40 whitespace-nowrap hidden sm:block">
-                      {countdown}
-                    </span>
-                  )}
-                  <StatusBadge status={e.status} />
+                  {s}
                 </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              ))}
+            </div>
+            <p className="text-sm text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-lg">
+              {visibleEvents.length} <span className="font-normal">of</span> {totalPublishedEvents} events
+            </p>
+          </div>
 
-      <footer className="mt-10 pt-5 border-t border-line text-xs text-ink/40 flex justify-between">
-        <span>Talentbank Career Fair Calendar — prototype</span>
-        <a href="/admin" className="hover:text-ink/70 underline">
-          Events team login
-        </a>
-      </footer>
+          <div className="h-px w-full bg-slate-100" />
 
-      <EventModal event={selected} onClose={() => setSelected(null)} onRegistered={load} />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex gap-2 flex-wrap">
+              {TYPES.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setType(t)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all duration-200 border ${
+                    type === t
+                      ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm"
+                      : "bg-transparent text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {t === "all" ? "Any type" : TYPE_LABELS[t]}
+                </button>
+              ))}
+            </div>
+            
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="text-sm font-medium border border-slate-200 rounded-xl px-4 py-2 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+            >
+              {DATE_RANGES.map((range) => (
+                <option key={range.value} value={range.value}>
+                  {range.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Event List */}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+          </div>
+        ) : visibleEvents.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
+            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-xl">📅</span>
+            </div>
+            <h3 className="text-slate-900 font-semibold mb-1">No events found</h3>
+            <p className="text-slate-500 text-sm">Try adjusting your filters to see more upcoming fairs.</p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {visibleEvents.map((event) => {
+              const countdown = getDaysToGoInfo(event.startDate, event.endDate);
+              
+              return (
+                <li key={event.id} className="group">
+                  <button
+                    onClick={() => setSelectedEvent(event)}
+                    className="w-full text-left flex flex-col sm:flex-row sm:items-center gap-4 bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-900 truncate text-lg group-hover:text-indigo-600 transition-colors">
+                        {event.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 text-slate-500 text-sm">
+                        <span className="font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                          {formatRange(event.startDate, event.endDate)}
+                        </span>
+                        <span>·</span>
+                        <span className="truncate">{event.location}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-3 sm:mt-0 pt-3 sm:pt-0 border-t border-slate-100 sm:border-0">
+                      {countdown && (
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap ${
+                          countdown.diff < 14 
+                            ? "text-rose-500 bg-rose-50" // Only red if < 14 days
+                            : "text-slate-500 bg-slate-100" // Neutral otherwise
+                        }`}>
+                          {countdown.label}
+                        </span>
+                      )}
+                      <StatusBadge status={event.status} />
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {/* Footer */}
+        <footer className="mt-16 pt-8 border-t border-slate-200 text-sm font-medium text-slate-400 flex flex-col md:flex-row justify-between items-center gap-4">
+          <span>© 2026 Talentbank Career Fair Calendar</span>
+          <a href="/admin" className="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+            Admin Login 🔒
+          </a>
+        </footer>
+
+        <EventModal 
+          event={selectedEvent} 
+          onClose={() => setSelectedEvent(null)} 
+          onRegistered={fetchEvents} 
+        />
+      </div>
     </div>
   );
 }
