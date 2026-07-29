@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #12172b;
+  --color-paper: #f6f4ee;
+  --color-amber: #e4a62b;
+  --color-clash: #c1443a;
+  --color-teal: #2f7a6b;
+  --color-line: #dcd7c9;
+
+  --font-display: var(--font-display), serif;
+  --font-body: var(--font-body), sans-serif;
+  --font-mono: var(--font-mono), monospace;
+}
+
+body {
+  font-feature-settings: "ss01";
+}
+
+.status-badge {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
