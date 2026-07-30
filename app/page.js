@@ -52,6 +52,17 @@ function withinDateRange(event, range) {
   return start <= cutoff;
 }
 
+const EMAIL_STORAGE_KEY = "tb-user-email";
+
+function loadSavedEmail() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(EMAIL_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 export default function UserPanel() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +71,44 @@ export default function UserPanel() {
   const [dateRange, setDateRange] = useState("all");
   const [weekOffset, setWeekOffset] = useState(0);
   const [selected, setSelected] = useState(null);
+  const [email, setEmail] = useState("");
+  const [registeredIds, setRegisteredIds] = useState(() => new Set());
+
+  // We have no login system, so "which events has this visitor registered
+  // for" is keyed off the email they last typed into the registration
+  // form (remembered locally). The actual registration status is always
+  // looked up fresh from Firestore via /api/registrations — the local
+  // value is just an identifier, not a source of truth.
+  async function refreshRegisteredIds(forEmail) {
+    if (!forEmail) {
+      setRegisteredIds(new Set());
+      return;
+    }
+    try {
+      const res = await fetch(`/api/registrations?email=${encodeURIComponent(forEmail)}`);
+      const data = await res.json();
+      setRegisteredIds(new Set(data.eventIds || []));
+    } catch (err) {
+      console.error("Failed to load registration status:", err);
+    }
+  }
+
+  useEffect(() => {
+    const savedEmail = loadSavedEmail();
+    setEmail(savedEmail);
+    refreshRegisteredIds(savedEmail);
+  }, []);
+
+  function handleRegistered(eventId, registeredEmail) {
+    setEmail(registeredEmail);
+    try {
+      window.localStorage.setItem(EMAIL_STORAGE_KEY, registeredEmail);
+    } catch {
+      // localStorage unavailable (private browsing, etc.) — status still works for this session
+    }
+    load();
+    refreshRegisteredIds(registeredEmail);
+  }
 
   async function load() {
     setLoading(true);
@@ -164,6 +213,7 @@ export default function UserPanel() {
         <ul className="space-y-2">
           {visible.map((e) => {
             const countdown = daysToGo(e.startDate, e.endDate);
+            const isRegistered = registeredIds.has(e.id);
             return (
               <li key={e.id}>
                 <button
@@ -176,11 +226,15 @@ export default function UserPanel() {
                       {formatRange(e.startDate, e.endDate)} · {e.location}
                     </p>
                   </div>
-                  {countdown && (
+                  {isRegistered ? (
+                    <span className="font-mono text-[0.65rem] uppercase tracking-wide text-teal bg-teal/10 border border-teal/30 rounded-full px-2 py-0.5 whitespace-nowrap">
+                      Registered
+                    </span>
+                  ) : countdown ? (
                     <span className="font-mono text-[0.65rem] uppercase tracking-wide text-ink/40 whitespace-nowrap hidden sm:block">
                       {countdown}
                     </span>
-                  )}
+                  ) : null}
                   <StatusBadge status={e.status} />
                 </button>
               </li>
@@ -196,7 +250,14 @@ export default function UserPanel() {
         </a>
       </footer>
 
-      <EventModal key={selected?.id} event={selected} onClose={() => setSelected(null)} onRegistered={load} />
+      <EventModal
+        key={selected?.id}
+        event={selected}
+        alreadyRegistered={selected ? registeredIds.has(selected.id) : false}
+        defaultEmail={email}
+        onClose={() => setSelected(null)}
+        onRegistered={handleRegistered}
+      />
     </div>
   );
 }

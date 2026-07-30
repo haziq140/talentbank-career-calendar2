@@ -14,13 +14,15 @@ function formatRange(start, end) {
   )}`;
 }
 
-export default function EventModal({ event, onClose, onRegistered }) {
-  const [form, setForm] = useState({ name: "", email: "", role: "candidate" });
+export default function EventModal({ event, onClose, onRegistered, alreadyRegistered = false, defaultEmail = "" }) {
+  const [form, setForm] = useState({ name: "", email: defaultEmail, role: "candidate" });
   const [state, setState] = useState("idle"); // idle | submitting | done | error
   const [error, setError] = useState("");
   const [waitlist, setWaitlist] = useState(false);
 
   if (!event) return null;
+
+  const showConfirmation = state === "done" || alreadyRegistered;
 
   const isCancelled = event.status === "cancelled";
   const isFull = event.status === "full";
@@ -37,10 +39,15 @@ export default function EventModal({ event, onClose, onRegistered }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, waitlist }),
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Server error (status ${res.status}). Check the server logs for details.`);
+      }
       if (!res.ok) throw new Error(data.error || "Something went wrong");
       setState("done");
-      onRegistered?.();
+      onRegistered?.(event.id, form.email);
     } catch (err) {
       setState("error");
       setError(err.message);
@@ -83,15 +90,15 @@ export default function EventModal({ event, onClose, onRegistered }) {
           </p>
         )}
 
-        {!isCancelled && state === "done" && (
+        {!isCancelled && showConfirmation && (
           <p className="mt-5 text-sm text-teal border border-teal/30 bg-teal/5 rounded-lg p-3">
-            {waitlist
+            {state === "done" && waitlist
               ? "You’re on the waitlist — we’ll email you if a spot opens up."
               : "You’re registered. Check your email for confirmation."}
           </p>
         )}
 
-        {!isCancelled && state !== "done" && (
+        {!isCancelled && !showConfirmation && (
           <form onSubmit={submit} className="mt-5 space-y-2.5">
             {isFull && (
               <label className="flex items-center gap-2 text-sm text-amber font-medium">

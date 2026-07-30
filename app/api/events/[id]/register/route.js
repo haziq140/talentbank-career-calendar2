@@ -3,17 +3,17 @@ import { registerForEvent, getEvent } from "@/lib/store";
 import { sendRegistrationEmail } from "@/lib/email";
 
 export async function POST(request, { params }) {
-  const { id } = await params;
-  const body = await request.json();
-
-  if (!body.name || !body.email) {
-    return NextResponse.json(
-      { error: "name and email are required" },
-      { status: 400 }
-    );
-  }
-
   try {
+    const { id } = await params;
+    const body = await request.json();
+
+    if (!body.name || !body.email) {
+      return NextResponse.json(
+        { error: "name and email are required" },
+        { status: 400 }
+      );
+    }
+
     const registration = await registerForEvent(id, body);
     const event = await getEvent(id);
 
@@ -30,6 +30,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({ registration });
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("Registration error:", err);
+    return NextResponse.json({ error: err.message || "Something went wrong" }, { status: 400 });
   }
 }
