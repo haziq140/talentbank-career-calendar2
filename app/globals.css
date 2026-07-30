@@ -12,6 +12,7 @@
   --font-body: var(--font-body), sans-serif;
   --font-mono: var(--font-mono), monospace;
 }
+@custom-variant dark (&:where(.dark, .dark *));
 
 body {
   font-feature-settings: "ss01";

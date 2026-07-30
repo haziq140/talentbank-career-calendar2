@@ -69,7 +69,7 @@ function getLocalISODate(dateObj) {
   return `${year}-${month}-${day}`;
 }
 
-// --- Month Calendar Component (Matching Screenshot Design) ---
+// --- Month Calendar Component ---
 function MonthCalendar({ events, onSelect }) {
   const [baseDate, setBaseDate] = useState(() => {
     const d = new Date();
@@ -80,7 +80,7 @@ function MonthCalendar({ events, onSelect }) {
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 is Sunday
+  const firstDayOfWeek = new Date(year, month, 1).getDay(); 
 
   const days = [];
   for (let i = 0; i < firstDayOfWeek; i++) days.push(null);
@@ -102,9 +102,9 @@ function MonthCalendar({ events, onSelect }) {
   const todayStr = getLocalISODate(new Date());
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm mb-6 text-slate-900">
+    <div className="border border-slate-200 dark:border-slate-700/60 rounded-xl overflow-hidden bg-white shadow-sm mb-6 transition-colors duration-300">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200">
+      <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 dark:border-slate-700/60">
         <h3 className="text-xl font-bold text-slate-900 tracking-tight">{monthName}</h3>
         <div className="flex gap-2">
           <button onClick={goToday} className="px-3 py-1.5 text-xs font-medium bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
@@ -165,7 +165,7 @@ function MonthCalendar({ events, onSelect }) {
   );
 }
 
-// --- Main View (Dark Mode Preserved) ---
+// --- Main View ---
 export default function UserPanel() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -175,6 +175,28 @@ export default function UserPanel() {
   const [selected, setSelected] = useState(null);
   const [email, setEmail] = useState("");
   const [registeredIds, setRegisteredIds] = useState(() => new Set());
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  // Initialize theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("tb-theme");
+    if (savedTheme === "light") {
+      setIsDarkMode(false);
+    } else {
+      setIsDarkMode(true);
+    }
+  }, []);
+
+  // Sync theme changes to the HTML document and localStorage
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("tb-theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("tb-theme", "light");
+    }
+  }, [isDarkMode]);
 
   async function refreshRegisteredIds(forEmail) {
     if (!forEmail) {
@@ -194,6 +216,7 @@ export default function UserPanel() {
     const savedEmail = loadSavedEmail();
     setEmail(savedEmail);
     refreshRegisteredIds(savedEmail);
+    load();
   }, []);
 
   function handleRegistered(eventId, registeredEmail) {
@@ -213,10 +236,6 @@ export default function UserPanel() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
   const visible = useMemo(() => {
     const today = getLocalISODate(new Date());
     return events
@@ -227,46 +246,55 @@ export default function UserPanel() {
       .filter((e) => withinDateRange(e, dateRange));
   }, [events, sector, type, dateRange]);
 
-  const publishedTotal = events.filter((e) => e.status !== "draft").length;
-
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-300 font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-600 dark:text-slate-300 font-sans selection:bg-blue-200 dark:selection:bg-blue-500/30 transition-colors duration-300">
       <div className="max-w-[1200px] mx-auto w-full px-4 sm:px-6 py-6 flex-1">
         
         {/* Top Navbar */}
-        <nav className="flex flex-wrap items-center justify-between py-3 border-b border-slate-800 mb-6 gap-4">
+        <nav className="flex flex-wrap items-center justify-between py-3 border-b border-slate-200 dark:border-slate-800 mb-6 gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white text-sm shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm shadow-md dark:shadow-[0_0_10px_rgba(59,130,246,0.3)]">
               📅
             </div>
             <div className="leading-tight">
-              <h1 className="text-base font-bold text-white tracking-tight">Talentbank</h1>
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Event Calendar</p>
+              <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Talentbank</h1>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Event Calendar</p>
             </div>
           </div>
           
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-full p-1">
-            <span className="px-3 py-1 rounded-full bg-[#1e293b] text-white text-xs font-semibold shadow-sm border border-slate-700">
-              Candidate / Employer
-            </span>
-            <a href="/admin" className="px-3 py-1 text-slate-500 hover:text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors group">
-              Public
-              <div className="w-7 h-3.5 bg-slate-800 border border-slate-700 rounded-full relative flex items-center px-0.5 group-hover:border-slate-500 transition-colors">
-                <div className="w-2.5 h-2.5 bg-slate-500 rounded-full"></div>
-              </div>
-              Admin
-            </a>
+          <div className="flex items-center gap-3">
+            {/* Functional Dark Mode Toggle */}
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-1.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors shadow-inner"
+              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {isDarkMode ? "🌙" : "☀️"}
+            </button>
+
+            <div className="flex items-center bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-full p-1">
+              <span className="px-3 py-1 rounded-full bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white text-xs font-semibold shadow-sm border border-slate-200 dark:border-slate-700">
+                Candidate / Employer
+              </span>
+              <a href="/admin" className="px-3 py-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors group">
+                Public
+                <div className="w-7 h-3.5 bg-slate-300 dark:bg-slate-800 border border-slate-400 dark:border-slate-700 rounded-full relative flex items-center px-0.5 group-hover:border-slate-500 transition-colors">
+                  <div className="w-2.5 h-2.5 bg-slate-500 rounded-full"></div>
+                </div>
+                Admin
+              </a>
+            </div>
           </div>
         </nav>
 
         {/* Title & Legend Box */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-1.5 tracking-tight">Upcoming Career Events</h2>
-          <p className="text-slate-400 text-xs mb-5 max-w-2xl">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1.5 tracking-tight">Upcoming Career Events</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-xs mb-5 max-w-2xl">
             Browse and register for career fairs, networking nights, and recruitment drives. Click any event for details.
           </p>
 
-          <div className="flex flex-wrap items-center gap-5 p-3 bg-[#1e293b]/60 border border-slate-700/60 rounded-lg text-xs text-slate-300 inline-flex">
+          <div className="flex flex-wrap items-center gap-5 p-3 bg-white dark:bg-[#1e293b]/60 border border-slate-200 dark:border-slate-700/60 rounded-lg text-xs text-slate-600 dark:text-slate-300 inline-flex shadow-sm">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.6)]"></span> 
               Open for registration
@@ -282,11 +310,10 @@ export default function UserPanel() {
           </div>
         </div>
 
-        {/* White Month Calendar Component */}
         <MonthCalendar events={events} onSelect={setSelected} />
 
         {/* Filters */}
-        <div className="flex flex-col gap-3 mt-6 mb-4 border-t border-slate-800 pt-6">
+        <div className="flex flex-col gap-3 mt-6 mb-4 border-t border-slate-200 dark:border-slate-800 pt-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex gap-2 flex-wrap">
               {SECTORS.map((s) => (
@@ -295,8 +322,8 @@ export default function UserPanel() {
                   onClick={() => setSector(s)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-200 border ${
                     sector === s
-                      ? "bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-900/20"
-                      : "bg-[#1e293b] border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm dark:shadow-blue-900/20"
+                      : "bg-white dark:bg-[#1e293b] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
                   {s}
@@ -312,8 +339,8 @@ export default function UserPanel() {
                     onClick={() => setType(t)}
                     className={`px-2.5 py-1 rounded-md text-[11px] font-semibold capitalize transition-all duration-200 border ${
                       type === t
-                        ? "bg-slate-700 text-white border-slate-500"
-                        : "bg-transparent border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                        ? "bg-slate-800 dark:bg-slate-700 text-white border-slate-800 dark:border-slate-500"
+                        : "bg-transparent border-slate-300 dark:border-slate-700 text-slate-500 hover:border-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-300"
                     }`}
                   >
                     {t === "all" ? "Any" : TYPE_LABELS[t]}
@@ -323,7 +350,7 @@ export default function UserPanel() {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="text-[11px] font-medium border border-slate-700 rounded-md px-2 py-1 bg-[#1e293b] text-slate-300 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                className="text-[11px] font-medium border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 bg-white dark:bg-[#1e293b] text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
               >
                 {DATE_RANGES.map((r) => (
                   <option key={r.value} value={r.value}>{r.label}</option>
@@ -333,13 +360,13 @@ export default function UserPanel() {
           </div>
         </div>
 
-        {/* List Details (Dark Mode) */}
+        {/* List Details */}
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
           </div>
         ) : visible.length === 0 ? (
-          <p className="text-slate-500 text-xs border border-slate-800 border-dashed rounded-lg p-6 text-center bg-slate-900/50">
+          <p className="text-slate-500 text-xs border border-slate-200 dark:border-slate-800 border-dashed rounded-lg p-6 text-center bg-white dark:bg-slate-900/50">
             No upcoming events match this filter yet.
           </p>
         ) : (
@@ -351,25 +378,25 @@ export default function UserPanel() {
                 <li key={e.id}>
                   <button
                     onClick={() => setSelected(e)}
-                    className="w-full text-left flex items-center gap-3 border border-slate-800 border-l-[3px] border-l-blue-500 rounded-lg px-4 py-3 bg-[#1e293b]/40 hover:bg-[#1e293b] hover:border-slate-600 transition-all duration-200 group"
+                    className="w-full text-left flex items-center gap-3 border border-slate-200 dark:border-slate-800 border-l-[3px] border-l-blue-500 dark:border-l-blue-500 rounded-lg px-4 py-3 bg-white dark:bg-[#1e293b]/40 hover:bg-slate-50 dark:hover:bg-[#1e293b] dark:hover:border-slate-600 transition-all duration-200 group shadow-sm dark:shadow-none"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white truncate text-sm group-hover:text-blue-400 transition-colors">{e.title}</p>
-                      <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1.5">
-                        <span className="bg-slate-900 px-1.5 py-0.5 rounded text-slate-300 font-medium">{formatRange(e.startDate, e.endDate)}</span> 
+                      <p className="font-semibold text-slate-900 dark:text-white truncate text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{e.title}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 flex items-center gap-1.5">
+                        <span className="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">{formatRange(e.startDate, e.endDate)}</span> 
                         <span>·</span> 
                         <span className="truncate">{e.location}</span>
                       </p>
                     </div>
                     {isRegistered ? (
-                      <span className="font-mono text-[10px] uppercase tracking-wide text-blue-400 bg-blue-900/30 border border-blue-500/30 rounded-md px-2 py-0.5 whitespace-nowrap shadow-sm">
+                      <span className="font-mono text-[10px] uppercase tracking-wide text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-500/30 rounded-md px-2 py-0.5 whitespace-nowrap shadow-sm">
                         Registered
                       </span>
                     ) : countdown ? (
                       <span className={`font-mono text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md whitespace-nowrap hidden sm:block ${
                         countdown.diff < 14 
-                          ? "text-rose-500 bg-rose-950 border border-rose-900" 
-                          : "text-slate-500 bg-slate-800"
+                          ? "text-rose-600 bg-rose-50 border border-rose-100 dark:text-rose-500 dark:bg-rose-950 dark:border-rose-900" 
+                          : "text-slate-500 bg-slate-100 dark:bg-slate-800 border border-transparent"
                       }`}>
                         {countdown.label || countdown}
                       </span>
@@ -384,9 +411,9 @@ export default function UserPanel() {
           </ul>
         )}
 
-        <footer className="mt-12 pt-5 border-t border-slate-800 text-[11px] text-slate-500 flex justify-between items-center">
+        <footer className="mt-12 pt-5 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 flex justify-between items-center">
           <span>© 2026 Talentbank Career Fair Calendar</span>
-          <a href="/admin" className="hover:text-white transition-colors bg-slate-900 px-3 py-1.5 rounded-md border border-slate-800">
+          <a href="/admin" className="hover:text-slate-700 dark:hover:text-white transition-colors bg-white dark:bg-slate-900 px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-none">
             Events team login
           </a>
         </footer>
