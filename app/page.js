@@ -243,9 +243,10 @@ export default function UserPanel() {
         </footer>
 
         <EventModal 
-          event={selectedEvent} 
-          onClose={() => setSelectedEvent(null)} 
-          onRegistered={fetchEvents} 
+        key={selected?.id} 
+        event={selected} 
+        onClose={() => setSelected(null)} 
+        onRegistered={load} 
         />
       </div>
     </div>
